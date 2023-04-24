@@ -23,7 +23,7 @@ else
 
 builder.Services.AddXmlDataProdiver(builder.Configuration.GetConnectionString("Xml"));
 
-builder.Services.AddGraphQLApi();
+
 
 var app = builder.Build();
 
