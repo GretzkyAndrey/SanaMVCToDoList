@@ -12,4 +12,6 @@ public interface IToDoRepository
     Task<ToDoModel> CreateAsync(ToDoModel toDo);
     Task<ToDoModel> UpdateAsync(ToDoModel toDo);
     Task<ToDoModel> RemoveAsync(int id);
+    Task<ToDoModel> GetByIdOrDefaultAsync(int id);
+    Task GetWithCategoryAsync(string? like, ToDosSortOrder sortOrder, int? categoryId);
 }

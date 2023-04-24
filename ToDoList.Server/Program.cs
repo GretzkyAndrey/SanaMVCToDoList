@@ -1,7 +1,9 @@
 using ToDoList;
-using ToDoList.GraphQL;
+
 using ToDoList.MsSql.Extensions;
 using ToDoList.XML.Extensions;
+using ToDoList.Controllers;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,12 +41,9 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseGraphQL<AppSchema>();
-app.UseGraphQLAltair();
 
-app.UseSpa(spa =>
-{
-    spa.Options.SourcePath = "wwwroot";
-});
+app.MapControllerRoute(
+    name: "default",
+    pattern: $"{{controller={nameof(ToDosController).ReplaceInEnd("Controller", string.Empty)}}}/{{action={nameof(ToDosController.Index)}}}/{{id?}}");
 
 app.Run();

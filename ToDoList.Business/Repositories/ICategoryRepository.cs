@@ -12,4 +12,5 @@ public interface ICategoryRepository
     Task<CategoryModel> CreateAsync(CategoryModel category);
     Task<CategoryModel> UpdateAsync(CategoryModel category);
     Task<CategoryModel> RemoveAsync(int id);
+    Task GetAsync(string empty, CategoriesSortOrder nameAsc);
 }

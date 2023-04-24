@@ -191,5 +191,15 @@ namespace ToDoList.XML.Repositories
             }
             return toDoIsExists;
         }
+
+        public Task<ToDoModel> GetByIdOrDefaultAsync(int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task GetWithCategoryAsync(string? like, ToDosSortOrder sortOrder, int? categoryId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
