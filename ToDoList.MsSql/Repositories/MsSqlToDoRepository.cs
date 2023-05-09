@@ -1,6 +1,5 @@
 ﻿using Dapper;
 using System.Data.SqlClient;
-using ToDoList.Business.Abstractions;
 using ToDoList.Business.Enums;
 using ToDoList.Business.Models;
 using ToDoList.Business.Repositories;
@@ -15,14 +14,12 @@ namespace ToDoList.MsSql.Repositories
             get { return new SqlConnection(connectionString); }
         }
 
-        public int Take => 3;
-
         public MSSqlToDoRepository(string connectionString)
         {
             this.connectionString = connectionString;
         }
 
-        public async Task<ToDoModel> GetByIdAsync(int id)
+        public async Task<ToDoModel> GetByIdOrDefaultAsync(int id)
         {
             string query = $"select * from ToDos where id = @id";
             using (var connection = DbConnection)
@@ -32,55 +29,64 @@ namespace ToDoList.MsSql.Repositories
             }
         }
 
-        public async Task<GetEntitiesResponse<ToDoModel>> GetAsync(int page = 1, string? like = null, ToDosSortOrder sortOrder = ToDosSortOrder.DeadlineAcs, int? categoryId = null)
+        public async Task<ToDoModel> GetByIdAsync(int id)
+        {
+            var toDo = await GetByIdOrDefaultAsync(id);
+            if (toDo == null)
+                throw new Exception($"ToDo with id {id} not found");
+            return toDo;
+        }
+
+        public async Task<IEnumerable<ToDoModel>> GetWithCategoryOrDefaultAsync(string? like, ToDosSortOrder sortOrder, int? categoryId)
         {
             like = like ?? "";
             like = $"%{like}%";
-            string query = @"select {0} from Todos 
+            string query = @"select * from Todos 
+                            left join Categories on ToDos.categoryId = Categories.Id 
                             where ToDos.Name like @like ";
 
             if (categoryId != null && categoryId != 0)
                 query += @"and ToDos.CategoryId = @categoryId ";
 
-            string getCountQuery = string.Format(query, "count(*)");
-            string getEntitieQuery = string.Format(query, "*");
-
             switch (sortOrder)
             {
                 case ToDosSortOrder.DeadlineAcs:
-                    getEntitieQuery += GetOrderBy("Deadline", "asc");
+                    query += GetOrderBy("Deadline", "asc");
                     break;
                 case ToDosSortOrder.DeadlineDecs:
-                    getEntitieQuery += GetOrderBy("Deadline", "desc");
+                    query += GetOrderBy("Deadline", "desc");
                     break;
                 case ToDosSortOrder.NameAsc:
-                    getEntitieQuery += GetOrderBy("Name", "asc");
+                    query += GetOrderBy("Name", "asc");
                     break;
                 case ToDosSortOrder.NameDesc:
-                    getEntitieQuery += GetOrderBy("Name", "desc");
+                    query += GetOrderBy("Name", "desc");
                     break;
                 case ToDosSortOrder.DateCompleteAsc:
-                    getEntitieQuery += GetOrderBy("DateComplete", "asc");
+                    query += GetOrderBy("DateComplete", "asc");
                     break;
                 case ToDosSortOrder.DateCompleteDesc:
-                    getEntitieQuery += GetOrderBy("DateComplete", "desc");
+                    query += GetOrderBy("DateComplete", "desc");
                     break;
             }
-            getEntitieQuery += " OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY";
-            int skip = (page - 1) * Take;
             using (var connection = DbConnection)
             {
                 await connection.OpenAsync();
-                var reader = await connection.QueryMultipleAsync($"{getCountQuery} {getEntitieQuery}", new { like, categoryId, Take, skip });
-                int total = reader.Read<int>().FirstOrDefault();
-                var todos = reader.Read<ToDoModel>();
-                return new GetEntitiesResponse<ToDoModel>
+                return await connection.QueryAsync<ToDoModel, CategoryModel, ToDoModel>(query, (toDo, category) =>
                 {
-                    Entities = todos,
-                    PageSize = Take,
-                    Total = total,
-                };
+                    toDo.CategoryId = category?.Id;
+                    toDo.Category = category;
+                    return toDo;
+                }, new { like, categoryId });
             }
+        }
+
+        public async Task<IEnumerable<ToDoModel>> GetWithCategoryAsync(string? like = null, ToDosSortOrder sortOrder = ToDosSortOrder.DeadlineAcs, int? categoryId = null)
+        {
+            var toDos = await GetWithCategoryOrDefaultAsync(like, sortOrder, categoryId);
+            if (toDos == null)
+                throw new Exception($"ToDos not found");
+            return toDos;
         }
 
         private string GetOrderBy(string columnName, string typeColumnName)
@@ -110,9 +116,9 @@ namespace ToDoList.MsSql.Repositories
             toDo.CreatedAt = dateTimeNow;
             toDo.UpdatedAt = dateTimeNow;
             string query = $@"insert into Todos 
-                            (Name, IsComplete, Deadline, CategoryId, CreatedAt, UpdatedAt) 
-                            values (@Name, @IsComplete, @Deadline, @CategoryId, @CreatedAt, @UpdatedAt);
-                            SELECT CAST(SCOPE_IDENTITY() as int);";
+                        (Name, IsComplete, Deadline, CategoryId, CreatedAt, UpdatedAt) 
+                        values (@Name, @IsComplete, @Deadline, @CategoryId, @CreatedAt, @UpdatedAt);
+                        SELECT CAST(SCOPE_IDENTITY() as int);";
             using (var connection = DbConnection)
             {
                 await connection.OpenAsync();
